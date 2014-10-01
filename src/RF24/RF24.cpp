@@ -243,7 +243,7 @@ void RF24::print_address_register(const char* name, uint8_t reg, uint8_t qty)
 RF24::RF24(uint8_t _cepin, uint8_t _cspin):
   ce_pin(_cepin), csn_pin(_cspin), wide_band(true), p_variant(false), 
   payload_size(32), ack_payload_available(false), dynamic_payloads_enabled(false),
-  pipe0_reading_address(0)
+  ack_payload_length(0), pipe0_reading_address(0)
 {
 }
 

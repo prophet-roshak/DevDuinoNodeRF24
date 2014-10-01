@@ -10,6 +10,7 @@ DHT::DHT(uint8_t pin, uint8_t type, uint8_t count) {
   _pin = pin;
   _type = type;
   _count = count;
+  _lastreadtime = 0;
   firstreading = true;
 }
 
@@ -46,7 +47,7 @@ float DHT::readTemperature(bool S) {
       return f;
     }
   }
-  Serial.print("Read fail");
+  //Serial.print("Read fail");
   return NAN;
 }
 
@@ -70,7 +71,7 @@ float DHT::readHumidity(void) {
       return f;
     }
   }
-  Serial.print("Read fail");
+  //Serial.print("Read fail");
   return NAN;
 }
 
@@ -154,7 +155,6 @@ boolean DHT::read(void) {
       (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) ) {
     return true;
   }
-  
 
   return false;
 

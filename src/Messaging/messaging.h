@@ -10,23 +10,30 @@
 
 #include <Arduino.h>
 
-typedef struct{
-  byte SensorID;        // идентификатор датчика
-  byte CommandTo;       // команда модулю номер ...
-  byte Command;         // команда
-                            // 0 - нет команды или ответ
-                            // 1 - получить значение
-                            // 2 - установить значение
-  byte ParamID;         // идентификатор параметра
-  float ParamValue;    // значение параметра
-  boolean Status;      // статус 0 - ошибка, 1 - ок
-  char Comment[16];    // комментарий
-} Message;
+typedef struct {
+	uint8_t iDeviceID;
+	char cDescription[32];
+} DeviceDescriptor;
 
-typedef struct{
-  float Value;         // значение
-  boolean Status;      // статус - 0-ошибка (false), 1-ок (true)
-  char Note[16];       // комментарий
-}  Parameter;
+typedef struct {
+	uint8_t iNodeID;
+	uint8_t iNodeType;
+	char cDescription[32];
+} NodeDescriptor;
+
+typedef struct {
+  float fValue;         // значение
+  boolean bStatus;      // статус - 0-ошибка (false), 1-ок (true)
+  char cNote[16];       // комментарий
+} NodeValue;
+
+typedef struct {
+	uint8_t iPacketType;
+	uint8_t iSenderID;
+	uint8_t iDestinationID;
+	uint8_t iPayloadSize;
+	byte* payload;
+	uint16_t wChecksum;
+} Packet;
 
 #endif /* MESSAGING_H_ */
