@@ -7,12 +7,13 @@
 
 #include <Arduino.h>
 
-#include "SPI/SPI.h"
+#include "SPI\SPI.h"
 #include "RF24\nRF24L01.h"
 #include "RF24\RF24.h"
 #include "printf.h"
-//#include "DHT\DHT.h"
+#include "DHT\DHT.h"
 #include "Messaging\Messaging.h"
+#include "ChainableLED\ChainableLED.h"
 
 //
 // Hardware configuration
@@ -23,8 +24,10 @@
 RF24 radio(8, 7);
 
 // DHT Sensor
-//#define DHTPIN A0     // what pin we're connected to// Uncomment whatever type you're using!//#define DHTTYPE DHT11   // DHT 11
-//#define DHTTYPE DHT22   // DHT 22  (AM2302)//#define DHTTYPE DHT21   // DHT 21 (AM2301)//DHT dht(DHTPIN, DHTTYPE);
+#define DHTPIN A0     // what pin we're connected to// Uncomment whatever type you're using!//#define DHTTYPE DHT11   // DHT 11
+#define DHTTYPE DHT22   // DHT 22  (AM2302)//#define DHTTYPE DHT21   // DHT 21 (AM2301)DHT dht(DHTPIN, DHTTYPE);
+
+ChainableLED tempLED(3, 5, 1);
 
 //
 // Topology
@@ -98,7 +101,9 @@ void setup(void)
 	radio.startListening();
 
 	// init DHT
-	//dht.begin();
+	dht.begin();
+
+	tempLED.setColorRGB(1, 255, 0, 0);
 }
 
 void DoBlink(byte bPin, int iCount, int iDelay = 500)
@@ -221,6 +226,12 @@ void loop(void)
 		DoBlink(9, 2, 200); // blink recieve mode
 		delay(2000);
 	}
+
+	float temp = dht.readTemperature();
+	if (temp > 23)
+		tempLED.setColorRGB(1, 100-(temp-23), 150+(temp-23),0);
+	else
+		tempLED.setColorRGB(1, 150+(23-temp), 100-(23-temp),0);
 }
 
 int main(void)
