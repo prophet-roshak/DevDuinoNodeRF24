@@ -5,15 +5,12 @@
  *      Author: Prophet
  */
 
-#include <Arduino.h>
+#include "core.hpp"
 
-#include "SPI\SPI.h"
-#include "RF24\nRF24L01.h"
-#include "RF24\RF24.h"
 #include "printf.h"
-#include "DHT\DHT.h"
-#include "Messaging\Messaging.h"
-#include "ChainableLED\ChainableLED.h"
+
+#include <avr/sleep.h>
+#include <avr/wdt.h>
 
 //
 // Hardware configuration
@@ -23,11 +20,11 @@
 
 RF24 radio(8, 7);
 
-// DHT Sensor
-#define DHTPIN A0     // what pin we're connected to// Uncomment whatever type you're using!//#define DHTTYPE DHT11   // DHT 11
-#define DHTTYPE DHT22   // DHT 22  (AM2302)//#define DHTTYPE DHT21   // DHT 21 (AM2301)DHT dht(DHTPIN, DHTTYPE);
+//DHT dht(DHTPIN, DHTTYPE);
 
 ChainableLED tempLED(3, 5, 1);
+
+volatile boolean wdt_trigger = 0;
 
 //
 // Topology
@@ -45,8 +42,7 @@ const uint64_t pipes[2] =
 //
 
 // The various roles supported by this sketch
-typedef enum
-{
+typedef enum {
 	role_ping_out = 1, role_pong_back
 } role_e;
 
@@ -57,11 +53,48 @@ const char* role_friendly_name[] =
 // The role of the current running sketch
 role_e role = role_pong_back;
 
-float humidity = 0;
-float temperature = 0;
+//float humidity = 0;
+//float temperature = 0;
+
+void ledBlink(byte bPin, int iCount, int iDelay = 500)
+{
+	for (int i = 0; i < iCount + 1; i++)
+	{
+		digitalWrite(bPin, HIGH);
+		delay(iDelay);
+		digitalWrite(bPin, LOW);
+		delay(iDelay / 2);
+	}
+}
+
+//режим сна для МК
+void system_sleep() {
+  delay(2);                            // Wait for serial traffic
+  _SFR_BYTE(ADCSRA) &= ~_BV(ADEN);     // Switch ADC off
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sleep_mode();                        // System sleeps here
+  sleep_disable();
+  _SFR_BYTE(ADCSRA) |= _BV(ADEN);      // Switch ADC on
+}
+
+void wdt_interrupt_mode() {
+  wdt_reset();
+  WDTCSR |= _BV(WDIE); // Restore WDT interrupt mode
+}
+
+ISR(WDT_vect) {
+	wdt_trigger = 1;  // set global volatile variable
+}
+
 
 void setup(void)
 {
+	// Watchdog configuration
+	wdt_disable();
+	wdt_reset();
+	wdt_enable(WDTO_8S);   //пробуждение каждые 8 сек
+
 	// Button
 	pinMode(4, INPUT);
 	// enable pull-up resistor
@@ -69,15 +102,18 @@ void setup(void)
 
 	// LED
 	pinMode(9, OUTPUT);
+	ledBlink(9, 1, 1000);
 
 	// Print preamble
-	Serial.begin(57600);
+	//Serial.begin(57600);
 
 	// Setup and configure rf radio
 	radio.begin();
 
 	// optionally, increase the delay between retries & # of retries
 	radio.setRetries(15, 15);
+
+	//radio.setChannel(76);
 
 	// Open pipes to other nodes for communication
 
@@ -86,6 +122,7 @@ void setup(void)
 	// Open 'our' pipe for writing
 	// Open the 'other' pipe for reading, in position #1 (we can have up to 5 pipes open for reading)
 
+	/*
 	if (role == role_ping_out)
 	{
 		radio.openWritingPipe(pipes[0]);
@@ -96,25 +133,16 @@ void setup(void)
 		radio.openWritingPipe(pipes[1]);
 		radio.openReadingPipe(1, pipes[0]);
 	}
+	*/
 
 	// Start listening
 	radio.startListening();
 
 	// init DHT
-	dht.begin();
+	//dht.begin();
 
-	tempLED.setColorRGB(1, 255, 0, 0);
-}
-
-void DoBlink(byte bPin, int iCount, int iDelay = 500)
-{
-	for (int i = 0; i < iCount + 1; i++)
-	{
-		digitalWrite(bPin, HIGH);
-		delay(iDelay);
-		digitalWrite(bPin, LOW);
-		delay(iDelay / 2);
-	}
+	tempLED.setColorRGB(0, 255, 0, 0);
+	delay(1000);
 }
 
 void rolePingOutExecute(void)
@@ -145,7 +173,7 @@ void rolePingOutExecute(void)
 	if (timeout)
 	{
 		// Timed out, blink error
-		DoBlink(9, 5, 500);
+		ledBlink(9, 5, 500);
 	}
 	else
 	{
@@ -181,7 +209,7 @@ void rolePongBackExecute(void)
 
 		// Send the final one back.
 		radio.write(&got_time, sizeof(unsigned long));
-		DoBlink(9, 1, 200);
+		ledBlink(9, 1, 200);
 
 		// Now, resume listening so we catch the next packets.
 		radio.startListening();
@@ -206,6 +234,7 @@ void loop(void)
 	// Change roles
 	//
 
+
 	bool b = digitalRead(4); // Using a digital unlatched button for it without jitter correction
 
 	if ((b == LOW) && role == role_pong_back)
@@ -214,7 +243,7 @@ void loop(void)
 		role = role_ping_out;
 		radio.openWritingPipe(pipes[0]);
 		radio.openReadingPipe(1, pipes[1]);
-		DoBlink(9, 3, 200); // Blink transmit mode
+		ledBlink(9, 3, 200); // Blink transmit mode
 		delay(2000);
 	}
 	else if ((b == LOW) && role == role_ping_out)
@@ -223,15 +252,27 @@ void loop(void)
 		role = role_pong_back;
 		radio.openWritingPipe(pipes[1]);
 		radio.openReadingPipe(1, pipes[0]);
-		DoBlink(9, 2, 200); // blink recieve mode
+		ledBlink(9, 2, 200); // blink receive mode
 		delay(2000);
 	}
 
-	float temp = dht.readTemperature();
+
+	float temp = 0;//dht.readTemperature();
 	if (temp > 23)
-		tempLED.setColorRGB(1, 100-(temp-23), 150+(temp-23),0);
+	{
+		int red = 100-(temp-20)*10;
+		int green = 150+(temp-20)*10;
+
+		tempLED.setColorRGB(0, (red < 0 ? 0 : red), (green > 255 ? 255 : green), 0);
+	}
 	else
-		tempLED.setColorRGB(1, 150+(23-temp), 100-(23-temp),0);
+	{
+		int red = 150+(temp-20)*10;
+		int green = 100-(temp-20)*10;
+
+		tempLED.setColorRGB(0, (red > 255 ? 255 : red), (green < 0 ? 0 : green), 0);
+	}
+
 }
 
 int main(void)
