@@ -27,8 +27,7 @@ ChainableLED tempLED(3, 5, 1); // Setup 1 led at data pin 3, clk pin 5
  */
 
 // Radio pipe addresses for the 2 nodes to communicate.
-const uint64_t pipes[2] =
-{ 0xF0F0F0F0E1LL, 0xF0F0F0F0D2LL };
+uint8_t pipes[][6] = { {0xF0, 0xF0, 0xF0, 0xF0, 0xE1}, {0xF0, 0xF0, 0xF0, 0xF0, 0xD2} };
 
 /*
  * State Variables
@@ -102,6 +101,10 @@ int main(void)
 		if (timeout <= 0)
 		{
 			ledBlink(9, 2, 200);
+
+			radio.powerUp();
+			unsigned long data = millis();
+			radio.write(&data, sizeof(unsigned long));
 
 			// disable radio before sleep
 			radio.powerDown();
