@@ -22,6 +22,12 @@ DHT dht(A0, DHT22); // Set up DHT at pin A0, type DHT22 - AM2302
 // RGB Led
 ChainableLED tempLED(3, 5, 1); // Setup 1 led at data pin 3, clk pin 5
 
+struct SensorData {
+	float temp;
+	float humidity;
+	long vcc;
+};
+
 /*
  * Topology
  */
@@ -103,8 +109,14 @@ int main(void)
 			ledBlink(9, 2, 200);
 
 			radio.powerUp();
-			unsigned long data = millis();
-			radio.write(&data, sizeof(unsigned long));
+
+			SensorData data;
+
+			data.temp = dht.readTemperature();
+			data.humidity = dht.readHumidity();
+			data.vcc = readVcc();
+
+			radio.write(&data, sizeof(SensorData));
 
 			// disable radio before sleep
 			radio.powerDown();
