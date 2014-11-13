@@ -34,6 +34,10 @@ void RF24::csn(bool mode)
       bcm2835_spi_chipSelect(csn_pin);
     //}
 
+#elif defined (RF24_INTEL_IOT)
+
+	mraa_gpio_write(m_csnPinCtx, mode);
+
 #elif defined (RF24_TINY)
 	if (ce_pin != csn_pin) {
 		digitalWrite(csn_pin,mode);
@@ -60,7 +64,9 @@ void RF24::ce(bool level)
 {
   #if defined (RF24_LINUX)
   bcm2835_gpio_write(ce_pin, level);
-#else
+  #elif defined (RF24_INTEL_IOT)
+  mraa_gpio_write(m_cePinCtx, level);
+  #else
   //Allow for 3-pin use on ATTiny
   if (ce_pin != csn_pin) digitalWrite(ce_pin,level);
 #endif
@@ -96,6 +102,14 @@ uint8_t RF24::read_register(uint8_t reg, uint8_t* buf, uint8_t len)
   }
   *buf++ = _SPI.transfer(csn_pin,0xff);
 
+#elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	status = mraa_spi_write(m_spi, ( R_REGISTER | ( REGISTER_MASK & reg)));
+	while (len--)
+		*buf++ = mraa_spi_write(m_spi, 0xff);
+
+	csn(HIGH);
+
 #else
   csn(LOW);
   status = _SPI.transfer( R_REGISTER | ( REGISTER_MASK & reg ) );
@@ -129,6 +143,13 @@ uint8_t RF24::read_register(uint8_t reg)
   #elif defined (__arm__) && !defined ( CORE_TEENSY )
   _SPI.transfer(csn_pin, R_REGISTER | ( REGISTER_MASK & reg ) , SPI_CONTINUE);
   result = _SPI.transfer(csn_pin,0xff);
+
+  #elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	mraa_spi_write(m_spi, ( R_REGISTER | ( REGISTER_MASK & reg)));
+	result = mraa_spi_write(m_spi, 0xff);
+
+	csn(HIGH);
   #else
   csn(LOW);
   _SPI.transfer( R_REGISTER | ( REGISTER_MASK & reg ) );
@@ -166,6 +187,13 @@ uint8_t RF24::write_register(uint8_t reg, const uint8_t* buf, uint8_t len)
     	_SPI.transfer(csn_pin,*buf++, SPI_CONTINUE);
 	}
 	_SPI.transfer(csn_pin,*buf++);
+  #elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	status = mraa_spi_write(m_spi, ( W_REGISTER | ( REGISTER_MASK & reg)));
+	while (len--)
+		mraa_spi_write(m_spi, (*buf++));
+
+	csn(HIGH);
   #else
 
   csn(LOW);
@@ -201,6 +229,11 @@ uint8_t RF24::write_register(uint8_t reg, uint8_t value)
   #elif defined (__arm__) && !defined ( CORE_TEENSY )
   status = _SPI.transfer(csn_pin, W_REGISTER | ( REGISTER_MASK & reg ), SPI_CONTINUE);
   _SPI.transfer(csn_pin,value);
+  #elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	status = mraa_spi_write(m_spi, ( W_REGISTER | ( REGISTER_MASK & reg)));
+	mraa_spi_write(m_spi, value);
+	csn(HIGH);
   #else
 
   csn(LOW);
@@ -260,6 +293,14 @@ uint8_t RF24::write_payload(const void* buf, uint8_t data_len, const uint8_t wri
     }
     _SPI.transfer(csn_pin,*current);
   }
+  #elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	status = mraa_spi_write(m_spi, writeType);
+	while (data_len--)
+		mraa_spi_write(m_spi, *current++);
+	while (blank_len--)
+		mraa_spi_write(m_spi, 0);
+	csn(HIGH);
 
   #else
 
@@ -330,6 +371,14 @@ uint8_t RF24::read_payload(void* buf, uint8_t data_len)
 	}
 	*current = _SPI.transfer(csn_pin,0xFF);
   }
+  #elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	status = mraa_spi_write(m_spi, R_RX_PAYLOAD);
+	while (data_len--)
+		*current++ = mraa_spi_write(m_spi, 0xff);
+	while (blank_len--)
+		mraa_spi_write(m_spi, 0xff);
+	csn(HIGH);
 
   #else
 
@@ -372,6 +421,10 @@ uint8_t RF24::spiTrans(uint8_t cmd){
     status = bcm2835_spi_transfer( cmd );
   #elif defined (__arm__) && !defined ( CORE_TEENSY )
 	status = _SPI.transfer(csn_pin, cmd );
+  #elif defined (RF24_INTEL_IOT)
+	csn(LOW);
+	status = mraa_spi_write(m_spi, cmd);
+	csn(HIGH);
   #else
 
   csn(LOW);
@@ -465,6 +518,14 @@ RF24::RF24(uint8_t _cepin, uint8_t _cspin):
 {
 }
 
+RF24::~RF24() {
+#if defined(RF24_INTEL_IOT)
+	mraa_gpio_close(m_csnPinCtx);
+	mraa_gpio_close(m_cePinCtx);
+	mraa_spi_stop(m_spi);
+#endif
+}
+
 /****************************************************************************/
 
 #if defined (RF24_LINUX)//RPi constructor
@@ -516,7 +577,7 @@ static const char * const rf24_model_e_str_P[] PROGMEM = {
 };
 static const char rf24_crclength_e_str_0[] PROGMEM = "Disabled";
 static const char rf24_crclength_e_str_1[] PROGMEM = "8 bits";
-static const char rf24_crclength_e_str_2[] PROGMEM = "16 bits" ;
+static const char rf24_crclength_e_str_2[] PROGMEM = "16 bits";
 static const char * const rf24_crclength_e_str_P[] PROGMEM = {
   rf24_crclength_e_str_0,
   rf24_crclength_e_str_1,
@@ -595,7 +656,7 @@ void RF24::printDetails(void)
   print_byte_register(PSTR("CONFIG"),CONFIG);
   print_byte_register(PSTR("DYNPD/FEATURE"),DYNPD,2);
 
-#if defined(__arm__) || defined (RF24_LINUX)
+#if defined(__arm__) || defined (RF24_LINUX) || defined (RF24_INTEL_IOT)
   printf_P(PSTR("Data Rate\t = %s\r\n"),pgm_read_word(&rf24_datarate_e_str_P[getDataRate()]));
   printf_P(PSTR("Model\t\t = %s\r\n"),pgm_read_word(&rf24_model_e_str_P[isPVariant()]));
   printf_P(PSTR("CRC Length\t = %s\r\n"),pgm_read_word(&rf24_crclength_e_str_P[getCRCLength()]));
@@ -634,6 +695,37 @@ void RF24::begin(void)
  	ce(LOW);
 	delay(100);
   
+  #elif defined(RF24_INTEL_IOT)
+	// Initialize pins
+	mraa_result_t error = MRAA_SUCCESS;
+
+	m_csnPinCtx = mraa_gpio_init(csn_pin);
+	if (m_csnPinCtx == NULL) {
+		fprintf(stderr, "Are you sure that pin%d you requested is valid on your platform?", csn_pin);
+		exit(1);
+	}
+
+	m_cePinCtx = mraa_gpio_init(ce_pin);
+	if (m_cePinCtx == NULL) {
+		fprintf(stderr, "Are you sure that pin%d you requested is valid on your platform?", ce_pin);
+		exit(1);
+	}
+
+	error = mraa_gpio_dir(m_csnPinCtx, MRAA_GPIO_OUT);
+	if (error != MRAA_SUCCESS) {
+		mraa_result_print(error);
+	}
+
+	error = mraa_gpio_dir(m_cePinCtx, MRAA_GPIO_OUT);
+	if (error != MRAA_SUCCESS) {
+		mraa_result_print(error);
+	}
+
+	// Initialize SPI bus
+	m_spi = mraa_spi_init(0);
+
+	ce(LOW);
+	csn(HIGH);
   #else
     // Initialize pins
   if (ce_pin != csn_pin) pinMode(ce_pin,OUTPUT);  
@@ -1042,6 +1134,12 @@ uint8_t RF24::getDynamicPayloadSize(void)
   #elif defined (__arm__) && ! defined( CORE_TEENSY )
   _SPI.transfer(csn_pin, R_RX_PL_WID, SPI_CONTINUE );
   result = _SPI.transfer(csn_pin,0xff);
+  #elif defined(RF24_INTEL_IOT)
+  csn(LOW);
+  mraa_spi_write(m_spi, R_RX_PL_WID);
+  result = mraa_spi_write(m_spi, 0xff);
+  csn(HIGH);
+
   #else
   csn(LOW);
   _SPI.transfer( R_RX_PL_WID );
@@ -1242,6 +1340,11 @@ void RF24::toggle_features(void)
   #elif defined (__arm__) && ! defined( CORE_TEENSY )
   _SPI.transfer(csn_pin, ACTIVATE, SPI_CONTINUE );
   _SPI.transfer(csn_pin, 0x73 );
+  #elif defined(RF24_INTEL_IOT)
+	csn(LOW);
+	mraa_spi_write(m_spi, ACTIVATE);
+	mraa_spi_write(m_spi, 0x73);
+	csn(HIGH);
   #else
   csn(LOW);
   _SPI.transfer( ACTIVATE );
@@ -1330,6 +1433,13 @@ void RF24::writeAckPayload(uint8_t pipe, const void* buf, uint8_t len)
 		_SPI.transfer(csn_pin,*current++, SPI_CONTINUE);
 	}
 	_SPI.transfer(csn_pin,*current++);
+  #elif defined(RF24_INTEL_IOT)
+	csn(LOW);
+	mraa_spi_write(m_spi, W_ACK_PAYLOAD | (pipe & 0b111));
+	while (data_len--)
+		mraa_spi_write(m_spi, *current++);
+
+	csn(HIGH);
 
   #else
   csn(LOW);

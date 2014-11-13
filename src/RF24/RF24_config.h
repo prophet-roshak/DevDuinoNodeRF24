@@ -22,16 +22,32 @@
   
 #if defined (__linux) || defined (linux)
   
-  #define RF24_LINUX
-  
   #include <stdint.h>
   #include <stdio.h>
   #include <time.h>
   #include <string.h>
   #include <sys/time.h>
   #include <stddef.h>
+#if !defined (__intel_iot)
+
+  #define RF24_LINUX
   #include "RPi/bcm2835.h"
 
+#else
+  #define RF24_INTEL_IOT
+
+  #define HIGH	1
+  #define LOW	0
+
+  #include <iostream>
+  #include <unistd.h>
+  #include <stdlib.h>
+
+  #include "..\util\UtilTime.h" // Arduino UTILTIME needs change to native time functions
+
+  #include <mraa/gpio.h>
+  #include <mraa/spi.h>
+#endif
   // GCC a Arduino Missing
   #define max(a,b) (a>b?a:b)
   #define min(a,b) (a<b?a:b)
@@ -67,7 +83,7 @@
   
  
   // Define _BV for non-Arduino platforms and for Arduino DUE
-#if defined (ARDUINO) && !defined (__arm__)
+#if defined (ARDUINO) && !defined (__arm__) && !defined(__intel_iot)
 	#if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
 		#define RF24_TINY
 		#define _SPI SPI
@@ -85,7 +101,7 @@
       #define _SPI spi
       
 	  #else	    
-		#include "../SPI/SPI.h"
+		#include <SPI.h>
 		#define _SPI SPI
 	  #endif
 	#endif
