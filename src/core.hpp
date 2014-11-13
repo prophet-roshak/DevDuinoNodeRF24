@@ -13,15 +13,15 @@
 #include <avr/wdt.h>
 
 // Chainable LED
-#include "ChainableLED\ChainableLED.h"
+#include <ChainableLED\ChainableLED.h>
 
 // RF24L01 Radio Lib
-#include "SPI\SPI.h"
+#include <SPI\SPI.h>
 #include "RF24\nRF24L01.h"
 #include "RF24\RF24.h"
 
 // Humidity and Temp sensor
-#include "DHT\DHT.h"
+#include <DHT\DHT.h>
 
 // Messaging subsystem
 #include "Messaging\Messaging.h"
