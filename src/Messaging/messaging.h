@@ -11,29 +11,30 @@
 #include <Arduino.h>
 
 typedef struct {
-	uint8_t iDeviceID;
-	char cDescription[32];
+	uint8_t iDeviceID;		// id устройства
+	char cDescription[];	// описание устройства
+	uint8_t localAdress[6];	// адрес устройства
 } DeviceDescriptor;
 
 typedef struct {
-	uint8_t iNodeID;
-	uint8_t iNodeType;
-	char cDescription[32];
+	uint8_t iNodeID;			// id узла
+	uint8_t iNodeType;			// тип узла
+	char cDescription[];		// описание узла
+	uint8_t remoteAddress[6];	// адрес радио
 } NodeDescriptor;
 
 typedef struct {
-  float fValue;         // значение
-  boolean bStatus;      // статус - 0-ошибка (false), 1-ок (true)
-  char cNote[16];       // комментарий
+	uint8_t iType;		// тип значения
+	float 	fValue;		// значение
+	boolean bStatus;	// статус - 0-ошибка (false), 1-ок (true)
+	char 	cNote[];	// комментарий
 } NodeValue;
 
 typedef struct {
-	uint8_t iPacketType;
-	uint8_t iSenderID;
-	uint8_t iDestinationID;
-	uint8_t iPayloadSize;
+	uint8_t sourceAddress[5];
+	uint8_t iSequenceSize;
+	uint8_t iSequenceNumber;
 	byte* payload;
-	uint16_t wChecksum;
 } Packet;
 
 #endif /* MESSAGING_H_ */

@@ -11,30 +11,31 @@
 #include "RF24Network.h"
 
 #if defined (ENABLE_SLEEP_MODE)
-#include <avr/sleep.h>
-#include <avr/power.h>
-volatile byte sleep_cycles_remaining;
+	#include <avr/sleep.h>
+	#include <avr/power.h>
+	volatile byte sleep_cycles_remaining;
 #endif
 
 uint16_t RF24NetworkHeader::next_id = 1;
 
 uint64_t pipe_address(uint16_t node, uint8_t pipe);
 #if defined (RF24NetworkMulticast)
-uint16_t levelToAddress(uint8_t level);
+	uint16_t levelToAddress(uint8_t level);
 #endif
+
 bool is_valid_address(uint16_t node);
 uint32_t nFails = 0, nOK = 0;
 uint8_t dynLen = 0;
 
 /******************************************************************/
 #if !defined (DUAL_HEAD_RADIO)
-RF24Network::RF24Network(RF24& _radio) :
-		radio(_radio), next_frame(frame_queue) {
-}
+	RF24Network::RF24Network(RF24& _radio):
+				radio(_radio), next_frame(frame_queue) {
+	}
 #else
-RF24Network::RF24Network( RF24& _radio, RF24& _radio1 ): radio(_radio), radio1(_radio1), next_frame(frame_queue)
-{
-}
+	RF24Network::RF24Network( RF24& _radio, RF24& _radio1 ): radio(_radio), radio1(_radio1), next_frame(frame_queue)
+	{
+	}
 #endif
 /******************************************************************/
 
