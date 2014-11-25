@@ -59,6 +59,8 @@ void handle_T(RF24NetworkHeader& header);
 void handle_N(RF24NetworkHeader& header);
 void add_node(uint16_t node);
 
+void mainjob();
+
 /*
  * ISR Routines
  */
@@ -117,7 +119,7 @@ int main(void)
 
 	globalInit(); 	// Init hardware
 
-	uint8_t timeout = SLEEP_TIMEOUT;
+	//uint8_t timeout = SLEEP_TIMEOUT;
 	for (;;)
 	{
 /*
@@ -140,44 +142,33 @@ int main(void)
 			network.peek(header);
 
 			switch (header.type) { // Dispatch the message to the correct handler.
-			case 'T':
-				handle_T(header);
-				break;
-			case 'N':
-				handle_N(header);
-				break;
 
-				/************* SLEEP MODE *********/
-				// Note: A 'sleep' header has been defined, and should only need to be ignored if a node is routing traffic to itself
-				// The header is defined as:  RF24NetworkHeader sleepHeader(/*to node*/ 00, /*type*/ 'S' /*Sleep*/);
-			case 'S': /*This is a sleep payload, do nothing*/
-				break;
+				case 'N':
+					handle_N(header);
+					break;
 
-			default:
-				printf_P(PSTR("*** WARNING *** Unknown message type %c\n\r"),
-						header.type);
-				network.read(header, 0, 0);
-				break;
+					/************* SLEEP MODE *********/
+					// Note: A 'sleep' header has been defined, and should only need to be ignored if a node is routing traffic to itself
+					// The header is defined as:  RF24NetworkHeader sleepHeader(/*to node*/ 00, /*type*/ 'S' /*Sleep*/);
+				case 'S': /*This is a sleep payload, do nothing*/
+					break;
+
+				default:
+					printf_P(PSTR("*** WARNING *** Unknown message type %c\n\r"), header.type);
+					network.read(header, 0, 0);
+					break;
 			};
 		}
 
-		// Execute main job
-		ledBlink(9, 2, 200);
 
-		SensorData data;
-
-		data.temp = dht.readTemperature();
-		data.humidity = dht.readHumidity();
-		data.vcc = readVcc();
-
-		// radio.write(&data, sizeof(SensorData));
+		mainjob();
 
 		/***************************** CALLING THE NEW SLEEP FUNCTION ************************/
 
 		if (millis() - sleepTime > awakeTime && NODE_ADDRESS) { // Want to make sure the Arduino stays awake for a little while when data comes in. Do NOT sleep if master node.
 			sleepTime = millis();                      // Reset the timer value
 			radio.stopListening(); // Switch to PTX mode. Payloads will be seen as ACK payloads, and the radio will wake up
-			network.sleepNode(SLEEP_TIMEOUT, 0); // Sleep the node for 8 cycles of 1second intervals
+			network.sleepNode(SLEEP_TIMEOUT, 2); // Sleep the node for 8 cycles of 1second intervals
 		}
 
 		//Examples:
@@ -190,6 +181,26 @@ int main(void)
 	}
 
 	return 0;
+}
+
+/**
+ * MAIN job
+ */
+void mainjob(void)
+{
+	// Execute main job
+	ledBlink(9, 2, 200);
+
+	SensorData data;
+
+	data.temp = dht.readTemperature();
+	data.humidity = dht.readHumidity();
+	data.vcc = readVcc();
+
+    if ( this_node > 00 ){                    // Normal nodes send a 'T' ping
+    	RF24NetworkHeader header(/*to node*/ 00, /*type*/ 'D' /*Data*/);
+    	network.write(header,&data,sizeof(SensorData));
+    }
 }
 
 /**
