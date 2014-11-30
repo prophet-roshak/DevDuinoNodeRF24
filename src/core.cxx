@@ -53,13 +53,21 @@ short next_ping_node_index = 0;
 unsigned long awakeTime = 500;
 unsigned long sleepTime = 0;
 
-bool send_T(uint16_t to);                              // Prototypes for functions to send & handle messages
-bool send_N(uint16_t to);
+volatile uint8_t sendErrors;
+
+// Prototypes for functions to send & handle messages
+bool send_D(uint16_t to);
+void handle_D(RF24NetworkHeader& header);
+
+bool send_T(uint16_t to);
 void handle_T(RF24NetworkHeader& header);
+
+bool send_N(uint16_t to);
 void handle_N(RF24NetworkHeader& header);
 void add_node(uint16_t node);
+// End prototypes declaration
 
-void mainjob();
+//void mainjob();
 
 /*
  * ISR Routines
@@ -110,6 +118,8 @@ void globalInit(void) {
 
 	tempLED.setColorRGB(0, 255, 0, 0);
 
+	sendErrors = 0;
+
 	delay(200); // Successfull init delay
 }
 
@@ -119,20 +129,8 @@ int main(void)
 
 	globalInit(); 	// Init hardware
 
-	//uint8_t timeout = SLEEP_TIMEOUT;
 	for (;;)
 	{
-/*
-		// Reset watchdog timer, enable WDT interrupts
-		wdt_interrupt_mode();
-
-		// If watchdog was triggered lower timeout counter
-		if (wdt_trigger)
-		{
-			timeout--;
-			wdt_trigger = 0;
-		}
-*/
 		network.update();
 
 		// do network part
@@ -161,14 +159,30 @@ int main(void)
 		}
 
 
-		mainjob();
+		// MAIN JOB BEGINS
+		ledBlink(9, 1, 200);
+
+		if (send_D(00))
+		{
+			ledBlink(9, 1, 200);
+			sendErrors = 0;
+		}
+		else
+		{
+			sendErrors++;
+		}
+		// MAIN JOB ENDS
 
 		/***************************** CALLING THE NEW SLEEP FUNCTION ************************/
 
 		if (millis() - sleepTime > awakeTime && NODE_ADDRESS) { // Want to make sure the Arduino stays awake for a little while when data comes in. Do NOT sleep if master node.
 			sleepTime = millis();                      // Reset the timer value
 			radio.stopListening(); // Switch to PTX mode. Payloads will be seen as ACK payloads, and the radio will wake up
-			network.sleepNode(SLEEP_TIMEOUT, 2); // Sleep the node for 8 cycles of 1second intervals
+
+			if (sendErrors > 3) // this will overflow in 252 send retries, starting 3 short period sends...
+				network.sleepNode(SLEEP_TIMEOUT * 30, 2); // Extended sleep the node for 4 * 30 cycles of 8 second intervals aprox 16 minutes
+			else
+				network.sleepNode(SLEEP_TIMEOUT, 2); // Sleep the node for 4 cycles of 8 second intervals aprox 32 sec
 		}
 
 		//Examples:
@@ -183,25 +197,18 @@ int main(void)
 	return 0;
 }
 
-/**
- * MAIN job
- */
-void mainjob(void)
+bool send_D(uint16_t to)
 {
-	// Execute main job
-	ledBlink(9, 2, 200);
-
 	SensorData data;
 
 	data.temp = dht.readTemperature();
 	data.humidity = dht.readHumidity();
 	data.vcc = readVcc();
 
-    if ( this_node > 00 ){                    // Normal nodes send a 'T' ping
-    	RF24NetworkHeader header(/*to node*/ 00, /*type*/ 'D' /*Data*/);
-    	network.write(header,&data,sizeof(SensorData));
-    }
+	RF24NetworkHeader header(/*to node*/ to, /*type*/ 'D' /*Data*/);
+	return network.write(header,&data,sizeof(SensorData));
 }
+
 
 /**
  * Send a 'T' message, the current time
