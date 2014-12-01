@@ -54,6 +54,7 @@ unsigned long awakeTime = 500;
 unsigned long sleepTime = 0;
 
 volatile uint8_t sendErrors;
+volatile bool jobExecuted;
 
 // Prototypes for functions to send & handle messages
 bool send_D(uint16_t to);
@@ -119,6 +120,7 @@ void globalInit(void) {
 	tempLED.setColorRGB(0, 255, 0, 0);
 
 	sendErrors = 0;
+	jobExecuted = false;
 
 	delay(200); // Successfull init delay
 }
@@ -160,16 +162,29 @@ int main(void)
 
 
 		// MAIN JOB BEGINS
-		ledBlink(9, 1, 200);
+		if (!jobExecuted)
+		{
+			ledBlink(9, 1, 1000);
 
-		if (send_D(00))
-		{
-			ledBlink(9, 1, 200);
-			sendErrors = 0;
-		}
-		else
-		{
-			sendErrors++;
+			SensorData data;
+
+			data.temp = dht.readTemperature();
+			data.humidity = dht.readHumidity();
+			data.vcc = readVcc();
+
+			RF24NetworkHeader header(/*to node*/ 00, /*type*/ 'D' /*Data*/);
+
+			if (network.write(header,&data,sizeof(SensorData)))
+			{
+				ledBlink(9, 1, 200);
+				sendErrors = 0;
+			}
+			else
+			{
+				ledBlink(9, 3, 200);
+				sendErrors++;
+			}
+			jobExecuted = true;
 		}
 		// MAIN JOB ENDS
 
@@ -183,6 +198,7 @@ int main(void)
 				network.sleepNode(SLEEP_TIMEOUT * 30, 2); // Extended sleep the node for 4 * 30 cycles of 8 second intervals aprox 16 minutes
 			else
 				network.sleepNode(SLEEP_TIMEOUT, 2); // Sleep the node for 4 cycles of 8 second intervals aprox 32 sec
+			jobExecuted = false;
 		}
 
 		//Examples:

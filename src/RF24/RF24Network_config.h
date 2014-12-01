@@ -66,7 +66,7 @@
 #endif
 
 
-
+  
   #if defined (SERIAL_DEBUG)
 	#define IF_SERIAL_DEBUG(x) ({x;})
   #else
@@ -81,13 +81,13 @@
   #else
     #define IF_SERIAL_DEBUG_MINIMAL(x)
   #endif
-
+  
   #if defined (SERIAL_DEBUG_FRAGMENTATION)
     #define IF_SERIAL_DEBUG_FRAGMENTATION(x) ({x;})
   #else
     #define IF_SERIAL_DEBUG_FRAGMENTATION(x)
   #endif
-
+  
   #if defined (SERIAL_DEBUG_ROUTING)
     #define IF_SERIAL_DEBUG_ROUTING(x) ({x;})
   #else

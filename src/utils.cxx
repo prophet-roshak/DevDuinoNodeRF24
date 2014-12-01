@@ -9,7 +9,7 @@
 
 void ledBlink(byte bPin, int iAmount, int iDelay = 500)
 {
-	for (int i = 0; i < iAmount + 1; i++)
+	for (int i = 0; i < iAmount; i++)
 	{
 		digitalWrite(bPin, HIGH);
 		delay(iDelay);
