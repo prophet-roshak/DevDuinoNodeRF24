@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>DevNodeRF24</name>
+	<name>DevNodeRF24-github</name>
 	<comment></comment>
 	<projects>
 		<project>DevDuinoCore</project>
